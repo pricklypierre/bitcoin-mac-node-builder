@@ -1,0 +1,154 @@
+#################################################################
+bitcoin_core:
+    enable_install: true                # enable Bitcoin Core install
+    target_path: "/Volumes/YOUR_SSD_DRIVE/Bitcoin Core"
+
+    # "build" will git clone and build from source using repo_url.
+    # "download" downloads the pre-built executables using download_url.
+    build_or_download: "build"
+    repo_url: "https://github.com/bitcoin/bitcoin.git"
+    download_url: "https://bitcoincore.org/bin"
+
+    # When building OR downloading, you can specify the github *tag* identifer to use a stable release:
+    #
+    #   version: "v29.0"
+    #   version: "v29.1"
+    #   version: "v29.2"
+    #   version: "v30.0"
+    #
+    # Additionally, when building (not downloading) you can specify the github *branch* identifer
+    # (no 'v' prefix) to run/test pre-release functionality:
+    #
+    #   version: "29.x"
+    #   version: "30.x"
+    #   version: "master"
+    #
+    # Versions older than v29 are not supported because they do not use cmake for building.
+    version: "v30.0"
+
+    # Build/download the QT based GUI. Not required -- you can just run the headless Bitcoin Core daemon.
+    # Note you can NOT launch the QT GUI executable and have it connect to the daemon. It is a monolithic
+    # client itself and only one client can access the datastore/blockchain files at a time, so, if
+    # you want to launch the GUI you first must stop the bitcoin daemon.
+    include_gui_app: false
+    # Optionally build the Bitcion Core unit tests (if building then tests are also run, if downloading
+    # the tests can be manually run).
+    include_run_tests: true
+
+    # Enables the built-in wallet functionality. If you are using Sparrow, Specter, Electrum, etc.
+    # then you do NOT need Bitcoin Core's built-in wallet UI. Recommended: 'false'.
+    enable_wallet: false
+
+    ###############################
+    # By default the bitcoin.conf file is generated from the settings below every time the install
+    # script is executed. However, if you have a custom bitcoin.conf file or need to manually edit
+    # its contents, then set 'generate_config_file' to 'false' which will ignore all the
+    # config settings below and use the existing bitcoin.conf file. It is recommended to leave
+    # this setting as 'true' unless you have a specific reason for custom bitcoin.conf changes.
+    # Note you can add custom config settings to the bitcoin.conf file using underscore prefix
+    # config value names (see comments below), which is the preferred method for custom settings.
+    generate_config_file: true
+
+    # Enables the RPC server (sets bitcoin.conf 'server=1') for local access. Required for bitcoin-cli,
+    # Electrs, Sparrow, Specter, etc. Note only local cookie authentication is supported for local
+    # RPC currently, which is automatically configured for Electrs server (if enabled). Usage of remote
+    # machine RPC via 'rpcuser/rpcpassword' or 'rpcauth' is not currently supported.
+    enable_local_rpc: true
+
+    # Allows inbound node connections (sets bitcoin.conf 'listen=1'). If concerned about bandwidth usage
+    # from incoming connections, leave this enabled and set 'maxuploadtarget' below to cap bandwidth
+    # usage. If concerned about privacy, then consider leaving this enabled but setting 'privacy_lockdown'
+    # below and only enabling Tor connections (enable_tor_connections: true).
+    enable_inbound_connections: true
+    listen_port: 8333
+
+    # Enable Bitcoin Core to allow outbound (and inbound if 'enable_inbound_connections' above is true)
+    # connections over IPv4, IPv6, or Tor. These mostly set the bitcoin.conf 'onlynet' setting, but Tor
+    # enabling also installs/configures Tor and sets 'listenonion' and 'proxy'. At least one of these
+    # must be enabled (multiple are allowed).
+    enable_ipv4_connections: true
+    enable_ipv6_connections: true
+    enable_tor_connections: true
+
+    # If both 'enable_inbound_connections' and 'enable_ipv4_connections' are true, then specify the
+    # technique used for inbound IPv4 address discovery:
+    #
+    #        natpmp: NAT-PMP mapping only (some routers, especially Apple's)
+    #          upnp: UPnP IGD only (note UPnP support was dropped in v28)
+    #   natpmp+upnp: Tries both NAT-PMP and UPnP
+    #        static: Static IPv4 address is specified below using 'external_ipv4_addr'
+    #
+    external_ipv4_discovery_method: "natpmp+upnp"
+
+    # If both 'enable_inbound_connections' and 'enable_ipv6_connections' are true, then specify the
+    # technique used for inbound IPv6 address discovery:
+    #
+    #          auto: IPv6 public address auto discovered
+    #        static: Static IPv6 address is specified below using 'external_ipv6_addr'
+    #
+    external_ipv6_discovery_method: "auto"
+
+    # If either discovery method above is 'static' then you must specify the IPv4 and/or IPv6 addresses
+    # and port to advertise to peers. These settings are ignored for other discovery method selections.
+    external_ipv4_addr: "203.0.113.1"    # replace with your public IPv4 address (router WAN or VPN)
+    external_ipv6_addr: "[2001:db8::1]"  # replace with your public IPv6 address
+    external_port: 8333                  # replace with the router (or VPN) public port used for forwarding
+
+    # Enabling this disables DNS seeding and lookups (sets bitcoin.conf 'dnsseed=0', 'dns=0'),
+    # and disables bloom filters for SPV clients ('peerbloomfilters=0'). In combination with
+    # enabling only Tor connections (enable_tor_connections: true) this will help make your
+    # node more private but still allow incoming connections which is useful for the Bitcoin
+    # network. However, if this is the first launch of the node (peers.dat file isn't yet
+    # populated) it will have difficulty discovering other nodes. Recommendation: only enable
+    # this if you *really* need node privacy and your node has already completed the initial
+    # block download or at least run long enough to populate peers.dat.
+    privacy_lockdown: false
+
+    # The following underscored prefixed settings are copied directly into Bitcoin Core's config
+    # file (bitcoin.conf).
+    #
+    # Note some settings may be overriden based on the values of meta settings above. For
+    # example, if Electrs Server is enabled below (enable_install in electrs_server) some
+    # settings below will be forced/overriden to what is required for Electrs to work with
+    # Bitcoin Core.
+    _par: 6                   # use N threads/cores for script verfifications
+    _dbcache: 3400            # larger value here will help prevent drive thrashing during IBD; can change to 450 after IDB.
+    _checkblocks: 6           # check ~1 hour of blocks on startup
+    _prune: 0                 # if using Electrs Server must be 0 (no pruning)
+    _blockfilterindex: 1      # if using Electrs Server must be 1 (enables BIP158 compact block filters)
+    _txindex: 1               # if using older Electrs Server version must be 1 (indexes all transactions for querying)
+    _whitelist: "127.0.0.1"   # if using Electrs Server must be 127.0.0.1, otherwise maxconnections and maxuploadtarget can cause drops
+    _maxconnections: 80       # allow up to N inbound + outbound connections
+    _maxuploadtarget: 500     # bandwidth cap (in MB) per day (0 for uncapped usage)
+    _blocksonly: 0            # if enabled (1) only confirmed transactions (blocks) are relayed
+    # _uacomment: "Node Version Banner"
+    # You can append additional Bitcoin config key/value pairs here (with _ prefix) and they
+    # will be copied into the bitcoin.conf file generated. The underscore prefix will be
+    # stripped from the key before it is written.
+
+#################################################################
+electrs_server:
+    enable_install: true                # enable Electrs (Electrum Server) install
+    target_path: "/Volumes/YOUR_SSD_DRIVE/Electrs"
+
+    repo_url: "https://github.com/romanz/electrs"
+
+    ###############################
+    # By default the config.toml file is generated from the settings below every time the install
+    # script is executed. However, if you have a custom config.toml file or need to manually edit
+    # its contents, then set 'generate_config_file' to 'false' which will ignore all the
+    # config settings below and use the existing config.toml file. It is recommended to leave
+    # this setting as 'true' unless you have a specific reason for custom config.toml changes.
+    generate_config_file: true
+
+    # If true then Electrum clients on remote machines can connect.
+    #    (sets config.toml 'electrum_rpc_addr=0.0.0.0:50001')
+    # If false then only clients on the same machine can connect.
+    #    (sets config.toml 'electrum_rpc_addr=127.0.0.1:50001')
+    # Note Electrs is currently configured to NOT use SSL, so it is recommended to only connect
+    # from Electrum clients/wallets on the same Mac or clients inside a secure local network.
+    allow_remote_access: true
+
+    # Optionally override the connection banner returned to Electrum clients.
+    #
+    # server_banner: "Welcome to electrs (Electrum Rust Server)!"
