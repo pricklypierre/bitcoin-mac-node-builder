@@ -1,6 +1,6 @@
-#!/bin/zsh
+#!/usr/bin/env zsh
 #
-# Amor et tolerantia erga omnes oppressos.
+# Amor et potentia oppressis.
 #
 
 emulate -L zsh
@@ -35,6 +35,8 @@ emulate -L zsh
 ###############################################################################
 
 ########################################
+CONFIG_FILENAME="global_config.yaml"
+
 LAUNCHCTRL_SERVICE="org.bitcoin.bitcoind"
 LAUNCHCTRL_PLIST="$HOME/Library/LaunchAgents/${LAUNCHCTRL_SERVICE}.plist"
 
@@ -55,11 +57,11 @@ typeset -i PREVENT_BLOCKS_AND_INDEX_UNINSTALL=1
 ########################################
 # Parse the settings out of global_config.yaml into $BITCOIN_CORE_CONFIG.
 SCRIPT_DIR="${0:A:h}"
-if [[ -f "$SCRIPT_DIR/_common-install.sh" ]]; then
-    source "$SCRIPT_DIR/_common-install.sh"
-    parse_global_config_file
+if [[ -f "$SCRIPT_DIR/lib/_install.zsh" ]]; then
+    source "$SCRIPT_DIR/lib/_install.zsh"
+    parse_global_config_file "$SCRIPT_DIR/$CONFIG_FILENAME"
 else
-    echo "Error: _common-install.sh not found (should be in same directory as this script)"
+    echo "Error: _install.zsh not found (should be in same directory as this script)"
     exit 1
 fi
 setopt extended_glob    # needed for case insensitive compares throughout
@@ -106,18 +108,18 @@ cd "$TARGET_PATH/bin"
 ./stop.sh
 \`\`\`
 
-## Monitor the server status and its log file with the node-monitor.sh dashboard:
+## Monitor the server status and its log file with the node-monitor.zsh dashboard:
 
 \`\`\`shell
 cd "$SCRIPT_DIR"
-./node-monitor.sh
+./node-monitor.zsh
 \`\`\`
 
 ## To uninstall Bitcoin Core:
 
 \`\`\`shell
 cd "$SCRIPT_DIR"
-./bitcoin-core-install.sh -u
+./bitcoin-core-install.zsh -u
 \`\`\`
 EOF
     glow -w 90 "$TARGET_PATH/README.md" || return $?
@@ -290,9 +292,7 @@ build_bitcoin_core() {
         mkdir -p "bitcoin-repo-$VERSION"    || { print_error "mkdir bitcoin-repo-$VERSION failed"; exit 1; }
         cd "bitcoin-repo-$VERSION"          || { print_error "cd bitcoin-repo-$VERSION failed"; exit 1; }
         local -i success=1
-        exec_with_popview \
-            "Running git clone..." \
-            "$BUILD_LOGS_DIR/bitcoind-git-commands.log" \
+        pv_exec -l "Running git clone..." -o "$BUILD_LOGS_DIR/bitcoind-git-commands.log" \
             git clone "$1" "$(pwd)" \
         || success=0
         if (( ! success )); then
@@ -302,15 +302,11 @@ build_bitcoin_core() {
             exit 1
         fi
         if (( VERSION_IS_BRANCH )); then
-            exec_with_popview \
-                "Running git checkout..." \
-                "$BUILD_LOGS_DIR/bitcoind-git-commands.log" \
+            pv_exec -l "Running git checkout..." -o "$BUILD_LOGS_DIR/bitcoind-git-commands.log" \
                 git checkout -b "my-branch" "origin/$VERSION" \
             || success=0
         else
-            exec_with_popview \
-                "Running git checkout..." \
-                "$BUILD_LOGS_DIR/bitcoind-git-commands.log" \
+            pv_exec -l "Running git checkout..." -o "$BUILD_LOGS_DIR/bitcoind-git-commands.log" \
                 git checkout -b "my-branch" "$VERSION" \
             || success=0
         fi
@@ -326,9 +322,7 @@ build_bitcoin_core() {
         if (( VERSION_IS_BRANCH )); then
             print_info_bold "Downloading Bitcoin Core changes (git pull on branch $VERSION)..."
             local -i success=1
-            exec_with_popview \
-                "Running git pull..." \
-                "$BUILD_LOGS_DIR/bitcoind-git-commands.log" \
+            pv_exec -l "Running git pull..." -o "$BUILD_LOGS_DIR/bitcoind-git-commands.log" \
                 git pull \
             || success=0
             if (( ! success )); then
@@ -368,9 +362,7 @@ build_bitcoin_core() {
     ((n_jobs < 1)) && n_jobs=1
 
     local -i success=1
-    exec_with_popview \
-        "Running cmake configure..." \
-        "$BUILD_LOGS_DIR/bitcoind-cmake-config.log" \
+    pv_exec -l "Running cmake configure..." -o "$BUILD_LOGS_DIR/bitcoind-cmake-config.log" \
         cmake -B build \
         -DBUILD_GUI=$INCLUDE_GUI_APP \
         -DBUILD_TESTS=$INCLUDE_TESTS \
@@ -378,23 +370,17 @@ build_bitcoin_core() {
         -DWITH_QRENCODE=$INCLUDE_GUI_APP \
     || success=0
     if (( success )); then
-        exec_with_popview \
-            "Running cmake build..." \
-            "$BUILD_LOGS_DIR/bitcoind-cmake-build.log" \
+        pv_exec -l "Running cmake build..." -o "$BUILD_LOGS_DIR/bitcoind-cmake-build.log" \
             cmake --build build -j $n_jobs \
         || success=0
     fi
     if (( success )) && [[ $INCLUDE_TESTS == ON ]]; then
-        exec_with_popview \
-            "Running ctest..." \
-            "$BUILD_LOGS_DIR/bitcoind-ctest-run.log" \
+        pv_exec -l "Running ctest..." -o "$BUILD_LOGS_DIR/bitcoind-ctest-run.log" \
             ctest --test-dir build -j $n_jobs \
         || success=0
     fi
     if (( success )) && [[ $INCLUDE_GUI_APP == ON ]]; then
-        exec_with_popview \
-            "Running cmake deploy..." \
-            "$BUILD_LOGS_DIR/bitcoind-cmake-deploy.log" \
+        pv_exec -l "Running cmake deploy..." -o "$BUILD_LOGS_DIR/bitcoind-cmake-deploy.log" \
             cmake --build build --target deploy \
         || success=0
     fi
@@ -436,16 +422,12 @@ download_bin_and_app() {
         # Assuming the binaries are good/valid. Caller can use clean install flag (-c) if they
         # need a fresh download.
     else
+        curl -f --progress-bar "$1" -o bitcoin-download-$VERSION.tar.gz || { print_error "Download failed: $1"; exit 1; }
         if [[ ! -f "checksum.asc" ]]; then
-            curl -s "$3" -o checksum.asc    || { print_error "Download failed: $3"; exit 1; }
-        fi
-        curl --progress-bar "$1" -o bitcoin-download-$VERSION.tar.gz &&
-        checksum_targz=$(shasum -a 256 bitcoin-download-$VERSION.tar.gz | awk '{ print $1 }')
-        if [ $? -ne 0 ]; then
-            print_error "Download failed: $1"
-            exit 1
+            curl -fs "$3" -o checksum.asc    || { print_error "Download failed: $3"; exit 1; }
         fi
         print_info "✓ Bitcoin Core binaries downloaded"
+        checksum_targz=$(shasum -a 256 bitcoin-download-$VERSION.tar.gz | awk '{ print $1 }')
         if grep -q "$checksum_targz" checksum.asc; then
             print_success "Checksum passed: bitcoin-download-$VERSION.tar.gz ($checksum_targz)"
             tar xzf bitcoin-download-$VERSION.tar.gz -C bitcoin-download-$VERSION --strip-components=1
@@ -460,16 +442,12 @@ download_bin_and_app() {
             print_info "✓ Bitcoin Core app (GUI) previously downloaded"
             # Caller can use clean install flag (-c) if they need a fresh download.
         else
+            curl -f --progress-bar "$2" -o bitcoin-download-$VERSION.zip || { print_error "Download failed: $2"; exit 1; }
             if [[ ! -f "checksum.asc" ]]; then
-                curl -s "$3" -o checksum.asc    || { print_error "Download failed: $3"; exit 1; }
-            fi
-            curl --progress-bar "$2" -o bitcoin-download-$VERSION.zip &&
-            checksum_zip=$(shasum -a 256 bitcoin-download-$VERSION.zip | awk '{ print $1 }')
-            if [ $? -ne 0 ]; then
-                print_error "Download failed: $2"
-                exit 1
+                curl -fs "$3" -o checksum.asc    || { print_error "Download failed: $3"; exit 1; }
             fi
             print_info "✓ Bitcoin Core app (GUI) downloaded"
+            checksum_zip=$(shasum -a 256 bitcoin-download-$VERSION.zip | awk '{ print $1 }')
             if grep -q "$checksum_zip" checksum.asc; then
                 print_success "Checksum passed: bitcoin-download-$VERSION.zip    ($checksum_zip)"
                 unzip -oq bitcoin-download-$VERSION.zip -d bitcoin-download-$VERSION/bin
@@ -522,12 +500,14 @@ install_config() {
 ###################################################################################################
 #                                  ** DO NOT EDIT THIS FILE **
 # It was machine generated by Bitcoin Mac Node Builder and any manual edits will be overwritten the
-# next time the bitcoin-core-install.sh script is executed. To change any configuration settings,
+# next time the bitcoin-core-install.zsh script is executed. To change any configuration settings,
 # edit the file:
 #
-#  ${CONFIG_FILE}
+#  ${SCRIPT_DIR}/${CONFIG_FILENAME}
 #
-# And then re-run the script: ${BITCOIN_CORE_INSTALL_SH_FILE}
+# And then re-run the script:
+#
+#  ${SCRIPT_DIR}/bitcoin-core-install.zsh
 #
 ############################
 # Inbound and outbound connection settings.
@@ -679,7 +659,7 @@ EOF
         mkdir -p "$LAUNCHD_HELPER_DIR" || exit $?
     fi
     cat > "$LAUNCHD_HELPER_DIR/$LAUNCHD_HELPER_STARTER_NAME" <<EOF
-#!/bin/zsh
+#!/usr/bin/env zsh
 
 RED="$RED"; GREEN="$GREEN"; BLUE="$BLUE"; YELLOW="$YELLOW"; RESET="$RESET"
 
@@ -873,7 +853,11 @@ install_bitcoin_core() {
             cp "bitcoin-download-$VERSION/bin/bitcoin"* "bin/" \
             && print_success "Installed: $TARGET_PATH/bin/bitcoind"
             if [[ ${INCLUDE_TESTS} == "ON" ]]; then
-                cp "bitcoin-download-$VERSION/bin/test_bitcoin"* "bin/"
+                test_bitcoin_dir="bin"
+                if (( VERSION_GTE_30 )); then   # v30+ moved test_bitcoin from bin/ to libexec/
+                    test_bitcoin_dir="libexec"
+                fi
+                cp "bitcoin-download-$VERSION/$test_bitcoin_dir/test_bitcoin"* "bin/"
             fi
             if [[ ${INCLUDE_GUI_APP} == "ON" ]]; then
                 cp -R "bitcoin-download-$VERSION/bin/Bitcoin-Qt.app" "bin/" \
@@ -895,9 +879,7 @@ install_bitcoin_core() {
 start_bitcoin_core() {
     if ! pgrep -x bitcoind > /dev/null; then
         local -i success=1
-        exec_with_popview \
-            "Starting Bitcoin Core..." \
-            "" \
+        pv_exec -l "Starting Bitcoin Core..." \
             "$TARGET_PATH/bin/start.sh" \
         || success=0
         if (( success )); then
@@ -914,9 +896,7 @@ start_bitcoin_core() {
 stop_bitcoin_core() {
     if pgrep -x bitcoind > /dev/null || pgrep -f "launchd/$LAUNCHD_HELPER_STARTER_NAME" > /dev/null; then
         local -i success=1
-        exec_with_popview \
-            "Stopping Bitcoin Core..." \
-            "" \
+        pv_exec -l "Stopping Bitcoin Core..." \
             "$TARGET_PATH/bin/stop.sh" \
         || success=0
         if (( ! success )); then
@@ -1068,7 +1048,7 @@ uninstall_bitcoin_core() {
 }
 
 ########################################
-while [[ $# -gt 0 ]]; do
+while (( $# )); do
     case $1 in
     -h|--help)
         show_usage "${0:t}"
@@ -1139,6 +1119,8 @@ else
     # Uncomment as master branch development progresses:
     # VERSION_GTE_31=1
     # VERSION_GTE_32=1
+    # VERSION_GTE_33=1
+    # VERSION_GTE_34=1
 fi
 typeset -i VERSION_IS_BRANCH=0
 if [[ "$VERSION" == "$VERSION_CLEAN" ]]; then
@@ -1155,14 +1137,14 @@ BUILD_OR_DOWNLOAD=${BITCOIN_CORE_CONFIG[build_or_download]}
 if [[ "${BITCOIN_CORE_CONFIG[enable_install]:-false}" == (#i)false ]]; then
     print_error "Configuration error. enable_install is not set for Bitcoin Core. To enable building/installing edit the ${CONFIG_FILENAME} file:"
     echo
-    print_error "  ${CONFIG_FILE}"
+    print_error "  ${SCRIPT_DIR}/${CONFIG_FILENAME}"
     exit 1
 fi
 
 if [[ -z "$TARGET_PATH" || "${TARGET_PATH:u}" == *"YOUR_SSD_DRIVE"* ]]; then
     print_error "Configuration error. target_path is not set for Bitcoin Core (or is using the placeholder value). To fix edit the ${CONFIG_FILENAME} file:"
     echo
-    print_error "  ${CONFIG_FILE}"
+    print_error "  ${SCRIPT_DIR}/${CONFIG_FILENAME}"
     exit 1
 fi
 
@@ -1301,6 +1283,10 @@ if [[ "${ELECTRS_SERVER_CONFIG[enable_install]:-false}" == (#i)true ]]; then
         print_warning "Electrs server compatibility requires Bitcoin Core to be configured with enable_local_rpc (overriding)"
         BITCOIN_CORE_CONFIG[enable_local_rpc]="true"
     fi
+    if [[ "$ENABLE_INBOUND" == (#i)false ]]; then
+        print_warning "Electrs server compatibility requires Bitcoin Core to be configured with enable_inbound_connections (overriding)"
+        ENABLE_INBOUND="true"
+    fi
     if [[ "${BITCOIN_CORE_RAW[blockfilterindex]:-0}" != "1" ]]; then
         print_warning "Electrs server compatibility requires Bitcoin Core to be configured with blockfilterindex=1 (overriding)"
         BITCOIN_CORE_RAW[blockfilterindex]="1"
@@ -1394,7 +1380,6 @@ elif (( FAST_INSTALL )); then
     start_tor; start_bitcoin_core
     generate_readme
 else
-    my_tput_clear
     echo "$STARTUP_TXT"
     if [ -t 0 ]; then   # if invoked from tty, then prompt first.
         echo
@@ -1402,7 +1387,7 @@ else
     else                # else (invoked via pipe, etc.) wait a few seconds.
         REPLY="y"
         echo "Starting installation in 5 seconds..."
-        my_sleep 5
+        pv_sleep 5
     fi
     if [[ "$REPLY" == (#i)y ]]; then
         echo

@@ -1,20 +1,21 @@
-#!/bin/zsh
+#!/usr/bin/env zsh
 #
-# Amor et tolerantia erga omnes oppressos.
+# Amor et potentia oppressis.
 #
 
 emulate -L zsh
 
 ########################################
-NODE_MONITOR_VERSION="1.0.0"
+NODE_MONITOR_VERSION="1.0.1"
+CONFIG_FILENAME="global_config.yaml"
 
 ########################################
 SCRIPT_DIR="${0:A:h}"
-if [[ -f "$SCRIPT_DIR/_common-install.sh" ]]; then
-    source "$SCRIPT_DIR/_common-install.sh"
-    parse_global_config_file
+if [[ -f "$SCRIPT_DIR/lib/_install.zsh" ]]; then
+    source "$SCRIPT_DIR/lib/_install.zsh"
+    parse_global_config_file "$SCRIPT_DIR/$CONFIG_FILENAME"
 else
-    echo "Error: _common-install.sh not found (should be in same directory as this script)"
+    echo "Error: _install.zsh not found (should be in same directory as this script)"
     exit 1
 fi
 setopt extended_glob    # needed for case insensitive compares throughout
@@ -27,7 +28,7 @@ BTC_ENABLE_INSTALL=${BITCOIN_CORE_CONFIG[enable_install]:-false}
 
 BTC_GUI_APP_NAME="Bitcoin-Qt"
 BTC_PROCESS_NAME="bitcoind"
-BTC_PROCESS_PATH="$BTC_TARGET_PATH/bin/$BTC_PROCESS_NAME"
+# BTC_PROCESS_PATH="$BTC_TARGET_PATH/bin/$BTC_PROCESS_NAME"
 BTC_PROCESS_PID=""
 BTC_CLI_NAME="bitcoin-cli"
 BTC_CLI_PATH="$BTC_TARGET_PATH/bin/$BTC_CLI_NAME"
@@ -44,7 +45,7 @@ if [[ $ELECTRS_ENABLE_INSTALL == (#i)true ]]; then
 fi
 
 ELECTRS_PROCESS_NAME="electrs"
-ELECTRS_PROCESS_PATH="$ELECTRS_TARGET_PATH/bin/$ELECTRS_PROCESS_NAME"
+# ELECTRS_PROCESS_PATH="$ELECTRS_TARGET_PATH/bin/$ELECTRS_PROCESS_NAME"
 ELECTRS_PROCESS_PID=""
 ELECTRS_START_SH="$ELECTRS_TARGET_PATH/bin/start.sh"
 ELECTRS_STOP_SH="$ELECTRS_TARGET_PATH/bin/stop.sh"
@@ -59,23 +60,23 @@ fi
 if [[ "$BTC_ENABLE_INSTALL" == (#i)false ]]; then
     print_error "enable_install is not set for Bitcoin Core. To enable building/installing edit the ${CONFIG_FILENAME} file:"
     echo
-    print_error "  ${CONFIG_FILE}"
+    print_error "  ${SCRIPT_DIR}/${CONFIG_FILENAME}"
     echo
     print_error "then run the installer script:"
     echo
-    print_error "  ${BITCOIN_CORE_INSTALL_SH_FILE}"
+    print_error "  ${SCRIPT_DIR}/bitcoin-core-install.zsh"
     exit 1
 fi
 if [[ ! -f "$BTC_CLI_PATH" ]]; then
     print_error "Bitcoin Core installation not found (missing $BTC_CLI_PATH). To install use:"
     echo
-    print_error "  ${BITCOIN_CORE_INSTALL_SH_FILE}"
+    print_error "  ${SCRIPT_DIR}/bitcoin-core-install.zsh"
     exit 1
 fi
 
 ########################################
 typeset -i TERM_WIDTH=0 TERM_HEIGHT=0
-my_get_term_width TERM_WIDTH; my_get_term_height TERM_HEIGHT
+pv_get_term_width TERM_WIDTH; pv_get_term_height TERM_HEIGHT
 typeset -i COL1_WIDTH=20
 typeset -i COL1_MIN_WIDTH=8  # threshold at which we punt on rendering column
 typeset -i COL2_WIDTH=40
@@ -227,8 +228,9 @@ fetch_json_data_async() {
             BTC_CLI_CURCMD="${BTC_CLI_CMDS[$BTC_CLI_CMDIDX]}"
             ((BTC_CLI_CMDIDX++ && BTC_CLI_CMDIDX > BTC_CLI_LEN)) && BTC_CLI_CMDIDX=1
         fi
+        setopt localoptions nomonitor
         coproc {
-            my_sleep 0.25      # Give bitcoind some idle time between requests.
+            pv_sleep 0.25      # Give bitcoind some idle time between requests.
             "$BTC_CLI_PATH" "$BTC_CLI_CURCMD" 2>&1
         }
         BTC_CLI_PID=$!
@@ -548,13 +550,13 @@ draw_stats_table() {
     done
 
     for ln in "${(f)table_buf}"; do
-        my_tput_cup $ypos $xpos
+        pv_tput_cup $ypos $xpos
         print -n "$ln";     ((ypos++)); ((total_height++))
         if ((total_height >= max_height)); then break; fi
     done
 
     # Bottom border
-    my_tput_cup $((ypos-1)) $xpos
+    pv_tput_cup $((ypos-1)) $xpos
     if (( col1_width_adjstd < COL1_MIN_WIDTH )); then
         print -f "${TABLE_BRDR_COLOR}╰%s─%s╯" "$t1" "$t2"
     else
@@ -748,7 +750,7 @@ draw_log_file() {
     table_buf+="$table_row"
 
     for ln in "${(f)table_buf}"; do
-        my_tput_cup $ypos $xpos
+        pv_tput_cup $ypos $xpos
         print -n "$ln";     ((ypos++))
     done
 }
@@ -761,9 +763,9 @@ typeset -i NEED_CLEANUP=0
 typeset SAVED_STTY=""
 cleanup_term_settings() {
     (( NEED_CLEANUP )) && {
-        my_tput_cnorm                   # show cursor
-        my_tput_smam                    # re-enable auto-wrapping of lines
-        my_tput_rmcup                   # restore alt screen
+        pv_tput_cnorm                   # show cursor
+        pv_tput_smam                    # re-enable auto-wrapping of lines
+        pv_tput_rmcup                   # restore alt screen
         printf "$OSC0_FRMT" ""          # clear window title
         [[ -n $SAVED_STTY ]] && stty "$SAVED_STTY" 2>/dev/null  # restore original stty settings
         SAVED_STTY=""
@@ -780,10 +782,10 @@ init_term_settings() {
     SAVED_STTY=$(stty -g)
     stty -echo  # not needed to (but could) set: -icanon -ixon -ixoff min 0 time 0
     printf "$OSC0_FRMT" "Node Monitor"  # set the window title
-    my_tput_smcup                       # start alt screen
-    my_tput_rmam                        # disable auto-wrapping of lines
-    my_tput_civis                       # hide cursor
-    my_tput_clear                       # clear screen
+    pv_tput_smcup                       # start alt screen
+    pv_tput_rmam                        # disable auto-wrapping of lines
+    pv_tput_civis                       # hide cursor
+    pv_tput_clear                       # clear screen
     NEED_CLEANUP=1
 }
 
@@ -797,28 +799,28 @@ handle_interactive_keys() {
             ;;
         [dD])       # D: Toggle debug view
             (( DEBUG_SHOW = !DEBUG_SHOW ))
-            my_tput_clear
+            pv_tput_clear
             ;;
         [bB])       # B: Start/stop bitcoind
             if [[ -f "$BTC_START_SH" && -f "$BTC_STOP_SH" ]]; then
-                my_tput_clear
+                pv_tput_clear
                 if [[ -z "$BTC_PROCESS_PID" ]] || ! kill -0 "$BTC_PROCESS_PID" 2>/dev/null; then
                     $BTC_START_SH
                 else
                     $BTC_STOP_SH
                 fi
-                my_sleep 1; my_tput_clear
+                pv_sleep 1; pv_tput_clear
             fi
             ;;
         [eE])       # E: Start/stop electrs
             if (( ELECTRS_ENABLED )) && [[ -f "$ELECTRS_START_SH" && -f "$ELECTRS_STOP_SH" ]]; then
-                my_tput_clear
+                pv_tput_clear
                 if [[ -z "$ELECTRS_PROCESS_PID" ]] || ! kill -0 "$ELECTRS_PROCESS_PID" 2>/dev/null; then
                     $ELECTRS_START_SH
                 else
                     $ELECTRS_STOP_SH
                 fi
-                my_sleep 1; my_tput_clear
+                pv_sleep 1; pv_tput_clear
             fi
             ;;
         esac
@@ -1106,10 +1108,10 @@ run_dashboard() {
         fi
 
         ##############################
-        my_start_buffered_update
+        pv_start_buffered_update
         (( RESIZE_PENDING )) && {
-            my_tput_clear
-            my_get_term_width TERM_WIDTH; my_get_term_height TERM_HEIGHT
+            pv_tput_clear
+            pv_get_term_width TERM_WIDTH; pv_get_term_height TERM_HEIGHT
             RESIZE_PENDING=0
         }
 
@@ -1257,12 +1259,12 @@ run_dashboard() {
             ypos_next=$((ypos_next + table_height))
         fi
 
-        my_end_buffered_update
+        pv_end_buffered_update
         handle_interactive_keys
     done
 }
 
-while [[ $# -gt 0 ]]; do
+while (( $# )); do
     case $1 in
     -h|--help)
         show_usage "${0:t}"

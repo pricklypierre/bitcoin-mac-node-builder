@@ -15,7 +15,7 @@ Bitcoin Mac Node builder supports:
 * Concise installer progress updates with detailed popup views and logging for troubleshooting
 * Multiple Bitcoin Core versions (29.x, 30.x, master branch) with fast version switching
 * Generating Bitcoin Core and Electrs config files (`bitcoin.conf`, `config.toml`) from simple, well-documented meta settings file ([global_config.yaml](./global_config.yaml))
-* Real-time monitoring with the included terminal node monitor dashboard (`node-monitor.sh`)
+* Real-time monitoring with the included terminal node monitor dashboard (`node-monitor.zsh`)
 
 For maintainability and transparency, all the scripts are written in zsh (the default shell on macOS).
 
@@ -66,19 +66,19 @@ The simplified [global_config.yaml](./global_config.yaml) meta settings file is 
    The blockchain and indexes need slightly less than 1 TB of storage, so an external SSD is recommended. You can make other configuration changes in `global_config.yaml`, but the defaults are configured to work well for most users and the installer scripts can be re-run if changes are later needed.
 3. Execute the Bitcoin Core installer script:
    ```zsh
-   ./bitcoin-core-install.sh
+   ./bitcoin-core-install.zsh
    ```
    If Xcode Command Line Tools are missing, the installer will prompt you to install them and re-run the installer script. When the Bitcoin Core daemon starts, macOS may prompt to allow access to the external drive and you will be notified of the `start-bitcoind` background item being added.
 
    ![bitcoind macos notifications](./readme-assets/macos-bitcoind-notifications.png)
 4. Optionally execute the Electrs Electrum Server installer script:
    ```zsh
-   ./electrs-install.sh
+   ./electrs-install.zsh
    ```
    When the Electrs daemon starts, macOS will show similar notifications as with Bitcoin Core.
 5. The initial block download (IBD) can take a long time (possibly days), depending on your ISP speed and SSD performance. Note the Electrs daemon will wait until after the IBD is complete to start its indexing (which takes several hours). To monitor both services start the node monitor dashboard:
    ```zsh
-   ./node-monitor.sh
+   ./node-monitor.zsh
    ```
    The node monitor has an adaptive layout, so resizing the Terminal window will show more information, including live logs for troubleshooting:
    ![Node Monitor Resizing](./readme-assets/node-monitor-opto.gif)
@@ -88,7 +88,7 @@ The simplified [global_config.yaml](./global_config.yaml) meta settings file is 
 
 After Bitcoin Core + Electrs are installed and the initial block download (and Electrs indexing) is complete, you can connect your [Electrum Wallet](https://electrum.org) directly to your node.
 
-1. Use the node monitor dashboard (`node-monitor.sh`) to monitor Bitcoin Core and Electrs. Wait for Bitcoin Core to complete the initial block download, and wait for Electrs to finish indexing.
+1. Use the node monitor dashboard (`node-monitor.zsh`) to monitor Bitcoin Core and Electrs. Wait for Bitcoin Core to complete the initial block download, and wait for Electrs to finish indexing.
 2. Quit the Electrum Wallet app if it is running, or use `electrum stop` from the Terminal if the daemon is running.
 3. Modify the Electrum Wallet configuration so that it only connects to your local Electrs server:
    ```zsh
@@ -99,7 +99,7 @@ After Bitcoin Core + Electrs are installed and the initial block download (and E
    electrum setconfig server ${ELECTRS_IP}:50001:t
    electrum stop
    ```
-   If your Electrum wallet is on a different Mac than your node, then change change `ELECTRS_IP="127.0.0.1"` to your local Electrs server IP address.
+   If your Electrum wallet is on a different Mac than your node, then change `ELECTRS_IP="127.0.0.1"` to your local Electrs server IP address.
 4. Relaunch the Electrum Wallet app.
 5. Verify that Electrum is connected to your local Electrs server via:
    ```zsh
@@ -118,7 +118,7 @@ After Bitcoin Core + Electrs are installed and the initial block download (and E
 
 You can also connect your [Sparrow Wallet](https://www.sparrowwallet.com) directly to your node. By using Bitcoin Core + Electrs, you can enable "[Expert Stage](https://sparrowwallet.com/docs/best-practices.html#the-expert-stage)" mode in Sparrow, which allows you to directly use Electrs when managing wallets and sending transactions.
 
-1. Use the node monitor dashboard (`node-monitor.sh`) to monitor Bitcoin Core and Electrs. Wait for Bitcoin Core to complete the initial block download, and wait for Electrs to finish indexing.
+1. Use the node monitor dashboard (`node-monitor.zsh`) to monitor Bitcoin Core and Electrs. Wait for Bitcoin Core to complete the initial block download, and wait for Electrs to finish indexing.
 2. Choose the `Sparrow->Setting` menu and under the `Server` panel choose the `Private Electrum` type option:
 
    ![Sparrow Private Server](./readme-assets/sparrow-private-server.png)
@@ -135,11 +135,11 @@ You can also connect your [Sparrow Wallet](https://www.sparrowwallet.com) direct
 
 ## Using with an Existing Bitcoin Core Installation
 
-Although the Bitcoin Mac Node Builder is designed to install and configure Bitcoin Core from scratch, it can also be used with an existing Bitcoin Core installation to avoid having to re-download and verify all the blocks. Note that the `bitcoin-core-install.sh` script creates an an alias (symlink) here:
+Although the Bitcoin Mac Node Builder is designed to install and configure Bitcoin Core from scratch, it can also be used with an existing Bitcoin Core installation to avoid having to re-download and verify all the blocks. Note that the `bitcoin-core-install.zsh` script creates an an alias (symlink) here:
 
 &nbsp;&nbsp;&nbsp;`~(user folder)/Library/Application Support/Bitcoin`
 
-to the Bitcoin Core `target_path` specified in the `global_config.yaml` so that Bitcoin Core commands find the config file and data directories. If you have a previous Bitcoin Core installation that has installed directly to that default location, then `bitcoin-core-install.sh` will fail to install since it cannot safely create the symlink.
+to the Bitcoin Core `target_path` specified in the `global_config.yaml` so that Bitcoin Core commands find the config file and data directories. If you have a previous Bitcoin Core installation that has installed directly to that default location, then `bitcoin-core-install.zsh` will fail to install since it cannot safely create the symlink.
 
 If you have a previous Bitcoin Core installation then:
 
@@ -149,7 +149,7 @@ If you have a previous Bitcoin Core installation then:
 2. Execute the Bitcoin Core installer script (see detailed steps above):
    ```zsh
    cd bitcoin-mac-node-builder
-   ./bitcoin-core-install.sh
+   ./bitcoin-core-install.zsh
    ```
 3. Execute the installed `stop.sh` script to stop the Bitcoin Core daemon.
 4. Copy from the previous installation into the new installation (specified by `target_path` in the `global_config.yaml`) the following directories and files:
@@ -164,12 +164,12 @@ If you have a previous Bitcoin Core installation then:
 7. Monitor the Bitcoin Core startup using the node monitor dashboard:
    ```zsh
    cd bitcoin-mac-node-builder
-   ./node-monitor.sh
+   ./node-monitor.zsh
    ```
 
 ## Installer Script Options
 
-Options for `bitcoin-core-install.sh`:
+Options for `bitcoin-core-install.zsh`:
 ```
 -c   Clean install. Forces fresh download and complete rebuild.
 -f   Fast install only source and config changes. Skips dependency and startup checks.
@@ -178,7 +178,7 @@ Options for `bitcoin-core-install.sh`:
 -uu  Uninstall Bitcoin Core including all data directories.
 ```
 
-Options for `electrs-install.sh`:
+Options for `electrs-install.zsh`:
 ```
 -c   Clean install. Forces fresh download and complete rebuild.
 -f   Fast install only source and config changes. Skips dependency and startup checks.
