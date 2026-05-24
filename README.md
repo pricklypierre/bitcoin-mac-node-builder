@@ -169,23 +169,19 @@ If you have a previous Bitcoin Core installation then:
 
 ## Installer Script Options
 
-Options for `bitcoin-core-install.zsh`:
-```
--c   Clean install. Forces fresh download and complete rebuild.
--f   Fast install only source and config changes. Skips dependency and startup checks.
-     A complete build must be done initially to install dependencies.
--u   Uninstall Bitcoin Core but leaves data directories: blocks, chainstate, indexes.
--uu  Uninstall Bitcoin Core including all data directories.
-```
+Command line options for `bitcoin-core-install.zsh`:
 
-Options for `electrs-install.zsh`:
-```
--c   Clean install. Forces fresh download and complete rebuild.
--f   Fast install only source and config changes. Skips dependency and startup checks.
-     A complete build must be done initially to install dependencies.
--u   Uninstall Electrs Electrum Server but leaves 'db' data directory.
--uu  Uninstall Electrs Electrum Server including all data directories.
-```
+- `-c` Clean install. Forces fresh download and complete rebuild.
+- `-f` Fast install only source and config changes. Skips dependency and startup checks. A complete build must be done initially to install dependencies.
+- `-u` Uninstall Bitcoin Core but leaves data directories: `blocks`, `chainstate`, `indexes`.
+- `-uu` Uninstall Bitcoin Core including all data directories.
+
+Command line options for `electrs-install.zsh`:
+
+- `-c` Clean install. Forces fresh download and complete rebuild.
+- `-f` Fast install only source and config changes. Skips dependency and startup checks. A complete build must be done initially to install dependencies.
+- `-u` Uninstall Electrs Electrum Server but leaves `db` data directory.
+- `-uu` Uninstall Electrs Electrum Server including all data directories.
 
 ## License
 
