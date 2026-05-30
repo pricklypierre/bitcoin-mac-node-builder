@@ -4,8 +4,6 @@
 
 # Bitcoin Mac Node Builder
 
-![Installing Screencast](./readme-assets/installing-main-narrow-opto.gif)
-
 ## Overview
 
 Automated, configurable installer and dashboard for running a self-hosted [Bitcoin Core full node](https://github.com/bitcoin/bitcoin) and optional [Electrs](https://github.com/romanz/electrs) (Electrum server) on macOS. Running a full node with Electrs allows you to directly connect popular wallets, including [Electrum](https://electrum.org) and [Sparrow Wallet](https://www.sparrowwallet.com). This give you the privacy and financial self-sovereignty to check wallet balances and send transactions without trusting third party servers.
@@ -18,6 +16,8 @@ Bitcoin Mac Node builder supports:
 * Real-time monitoring with the included terminal node monitor dashboard (`node-monitor.zsh`)
 
 For maintainability and transparency, all the scripts are written in zsh (the default shell on macOS).
+
+![Installing Screencast](./readme-assets/installing-main-narrow-opto.gif)
 
 ## Built for macOS
 While other Bitcoin Core node builders exist, Bitcoin Mac Node Builder is specifically designed to make installation and configuration of Bitcoin Core and Electrs on macOS both robust and easy-to-maintain:
