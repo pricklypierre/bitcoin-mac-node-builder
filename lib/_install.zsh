@@ -4,7 +4,7 @@
 #
 
 ########################################
-NODE_BUILDER_VERSION="1.0.1"
+NODE_BUILDER_VERSION="1.0.2"
 
 NODE_BUILDER_APP_SUPPORT_PATH="$HOME/Library/Application Support/Bitcoin Mac Node Builder"
 # Directory for launchd helper scripts (must reside on internal drive, not external volume).

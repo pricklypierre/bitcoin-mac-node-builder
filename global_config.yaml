@@ -14,19 +14,22 @@ bitcoin_core:
     #   version: "v29.0"
     #   version: "v29.1"
     #   version: "v29.2"
+    #   version: "v29.3"
     #   version: "v30.0"    # unavail for 'download' because of wallet migration bug -- must use 'build' option
     #   version: "v30.1"    # unavail for 'download' because of wallet migration bug -- must use 'build' option
     #   version: "v30.2"
+    #   version: "v31.0"
     #
     # Additionally, when building (not downloading) you can specify the github *branch* identifer
     # (no 'v' prefix) to run/test pre-release functionality:
     #
     #   version: "29.x"
     #   version: "30.x"
+    #   version: "31.x"
     #   version: "master"
     #
     # Versions older than v29 are not supported because they do not use cmake.
-    version: "v30.2"
+    version: "v31.0"
 
     # Build/download the QT based GUI. Not required -- you can just run the headless Bitcoin Core daemon.
     # Note you can NOT launch the QT GUI executable and have it connect to the daemon. It is a monolithic
@@ -137,6 +140,23 @@ electrs_server:
     target_path: "/Volumes/YOUR_SSD_DRIVE/Electrs"
 
     repo_url: "https://github.com/romanz/electrs"
+
+    # You can specify the github *tag* identifer to use a stable release:
+    #
+    #   version: "v0.10.10"
+    #   version: "v0.11.0"
+    #   version: "v0.11.1"
+    #
+    # Or you can specify the github *branch* identifer (no 'v' prefix) to run/test
+    # pre-release functionality:
+    #
+    #   version: "master"
+    #
+    version: "v0.11.1"
+
+    # Note v0.11.2+ (not yet released/tested) might require Bitcoin Core v31.0+ and
+    # the bitcoin.conf 'rest=1' setting. Logic to handle this will be implemented in
+    # future install script after v0.11.2 is released.
 
     ###############################
     # By default the config.toml file is generated from the settings below every time the install

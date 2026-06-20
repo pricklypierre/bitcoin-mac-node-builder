@@ -11,7 +11,7 @@ emulate -L zsh
 #
 # Source files used for building:
 #
-#   TARGET_PATH/electrs-repo/
+#   TARGET_PATH/electrs-repo-VERSION/
 #
 # Binaries are then copied from those repo directory, along with some
 # helper scripts, into:
@@ -91,7 +91,7 @@ generate_readme() {
 
 ## Electrs Electrum Server Installed
 
-Electrs was installed using the Bitcoin Mac Node Builder ([available on Github](https://github.com/pricklypierre/bitcoin-mac-node-builder)) into:
+Electrs ($VERSION) was installed using the Bitcoin Mac Node Builder ([available on Github](https://github.com/pricklypierre/bitcoin-mac-node-builder)) into:
 
 &nbsp;&nbsp;&nbsp;&nbsp;**$TARGET_PATH/**
 
@@ -177,16 +177,17 @@ install_build_dependencies() {
 build_electrs() {
     cd "$TARGET_PATH" || exit $?
 
-    if (( CLEAN_INSTALL )) && [[ -d "$REPOT_DIR_NAME" ]]; then
+    # Note we build in version specific folder (bitcoin-repo-$VERSION).
+    if (( CLEAN_INSTALL )) && [[ -d "$REPOT_DIR_NAME-$VERSION" ]]; then
         echo
         print_info_bold "Performing clean install (deleting existing build)..."
-        rm -rf "$REPOT_DIR_NAME"        || { print_error "rm $REPOT_DIR_NAME failed"; exit 1; }
+        rm -rf "$REPOT_DIR_NAME-$VERSION"   || { print_error "rm $REPOT_DIR_NAME-$VERSION failed"; exit 1; }
     fi
-    if [[ ! -d "$REPOT_DIR_NAME" ]]; then
+    if [[ ! -d "$REPOT_DIR_NAME-$VERSION" ]]; then
         echo
         print_info_bold "Downloading Electrs source files (git clone)..."
-        mkdir -p "$REPOT_DIR_NAME"      || { print_error "mkdir $REPOT_DIR_NAME failed"; exit 1; }
-        cd "$REPOT_DIR_NAME"            || { print_error "cd $REPOT_DIR_NAME failed"; exit 1; }
+        mkdir -p "$REPOT_DIR_NAME-$VERSION" || { print_error "mkdir $REPOT_DIR_NAME-$VERSION failed"; exit 1; }
+        cd "$REPOT_DIR_NAME-$VERSION"       || { print_error "cd $REPOT_DIR_NAME-$VERSION failed"; exit 1; }
         local -i success=1
         pv_exec -l "Running git clone..." -o "$BUILD_LOGS_DIR/electrs-git-commands.log" \
             git clone "$1" "$(pwd)" \
@@ -194,34 +195,46 @@ build_electrs() {
         if (( ! success )); then
             print_error "Git clone failed."
             cd "$TARGET_PATH" || exit $?
-            rm -rf "$REPOT_DIR_NAME"  # Remove to force a git clone/checkout on next run.
+            rm -rf "$REPOT_DIR_NAME-$VERSION"  # Remove to force a git clone/checkout on next run.
             exit 1
         fi
-        pv_exec -l "Running git checkout..." -o "$BUILD_LOGS_DIR/electrs-git-commands.log" \
-            git checkout -b "my-branch" origin/master \
-        || success=0
+        if (( VERSION_IS_BRANCH )); then
+            pv_exec -l "Running git checkout..." -o "$BUILD_LOGS_DIR/electrs-git-commands.log" \
+                git checkout -b "my-branch" "origin/$VERSION" \
+            || success=0
+        else
+            pv_exec -l "Running git checkout..." -o "$BUILD_LOGS_DIR/electrs-git-commands.log" \
+                git checkout -b "my-branch" "$VERSION" \
+            || success=0
+        fi
         if (( ! success )); then
             print_error "Git checkout failed."
             cd "$TARGET_PATH" || exit $?
-            rm -rf "$REPOT_DIR_NAME"  # Remove to force a git clone/checkout on next run.
+            rm -rf "$REPOT_DIR_NAME-$VERSION"  # Remove to force a git clone/checkout on next run.
             exit 1
         fi
     else
+        cd "$REPOT_DIR_NAME-$VERSION"       || { print_error "cd $REPOT_DIR_NAME-$VERSION failed"; exit 1; }
         echo
-        print_info_bold "Downloading Electrs changes (git pull)..."
-        cd "$REPOT_DIR_NAME"            || { print_error "cd $REPOT_DIR_NAME failed"; exit 1; }
-        local -i success=1
-        pv_exec -l "Running git pull..." -o "$BUILD_LOGS_DIR/electrs-git-commands.log" \
-            git pull \
-        || success=0
-        if (( ! success )); then
-            print_error "Git pull failed."
-            exit 1
+        if (( VERSION_IS_BRANCH )); then
+            print_info_bold "Downloading Electrs changes (git pull on branch $VERSION)..."
+            local -i success=1
+            pv_exec -l "Running git pull..." -o "$BUILD_LOGS_DIR/electrs-git-commands.log" \
+                git pull \
+            || success=0
+            if (( ! success )); then
+                print_error "Git pull failed."
+                exit 1
+            fi
+        else
+            # No point in doing 'git pull' because we did a checkout on a version (not branch)
+            # so there cannot be any changes (head is detached).
+            print_info_bold "Skipping download of Electrs source files (already exists)..."
         fi
     fi
 
     echo
-    print_info_bold "Building Electrs via cargo..."
+    print_info_bold "Building Electrs ($VERSION) via cargo..."
     setopt null_glob
     rm -rf "$TARGET_PATH/bin/"*
     rm -f target/release/electrs target/release/electrs.d
@@ -545,9 +558,9 @@ install_electrs() {
         mkdir -p "bin" || exit $?
     fi
 
-    if [[ -f "$REPOT_DIR_NAME/target/release/electrs" ]]; then
+    if [[ -f "$REPOT_DIR_NAME-$VERSION/target/release/electrs" ]]; then
         # Install compiled binary.
-        cp "$REPOT_DIR_NAME/target/release/electrs" "bin/" \
+        cp "$REPOT_DIR_NAME-$VERSION/target/release/electrs" "bin/" \
         && print_success "Installed: $TARGET_PATH/bin/electrs"
     else
         print_error "Cannot find files to install."
@@ -648,11 +661,13 @@ uninstall_electrs() {
             && print_success "Removed: $TARGET_PATH/bin"
         fi
 
-        # Remove repo build directory
-        if [[ -d "$TARGET_PATH/electrs-repo" ]]; then
-            rm -rf "$TARGET_PATH/electrs-repo" \
-            && print_success "Removed: $TARGET_PATH/electrs-repo"
-        fi
+        # Remove build directories (wildcard needed since there can be multiple versions)
+        for dir in "$TARGET_PATH/$REPOT_DIR_NAME-"*(/N); do
+            if [[ -d "$dir" ]]; then
+                rm -rf "$dir" \
+                && print_success "Removed: $dir"
+            fi
+        done
 
         delete_file_if_exists "$TARGET_PATH/config.toml"
         delete_file_if_exists "$TARGET_PATH/$ELECTRS_LOG_NAME"
@@ -728,8 +743,26 @@ done
 
 ########################################
 # Sanity check main configuration and build flag options.
+VERSION=${ELECTRS_SERVER_CONFIG[version]}
+VERSION_CLEAN=${VERSION#v}  # Strip 'v' prefix character used for specifing tags.
+typeset -i VERSION_IS_NUMERICAL=0
+typeset -i VERSION_GTE_0_11_0=0
+if [[ "$VERSION_CLEAN" == [0-9]* ]]; then
+    VERSION_IS_NUMERICAL=1
+    autoload is-at-least
+    if is-at-least 0.11.0 "$VERSION_CLEAN"; then
+        VERSION_GTE_0_11_0=1
+    fi
+else
+    # If version is a branch label (likely "master"), then assume it is at least v30.
+    VERSION_GTE_0_11_0=1
+fi
+typeset -i VERSION_IS_BRANCH=0
+if [[ "$VERSION" == "$VERSION_CLEAN" ]]; then
+    VERSION_IS_BRANCH=1   # If it did not have 'v' prefix, then version specified is a branch (not a tag)
+fi
 TARGET_PATH=${ELECTRS_SERVER_CONFIG[target_path]}
-OVERRIDE_EXISTING_CONFIG_FILE=${BITCOIN_CORE_CONFIG[generate_config_file]:-true}
+OVERRIDE_EXISTING_CONFIG_FILE=${ELECTRS_SERVER_CONFIG[generate_config_file]:-true}
 
 if [[ "${ELECTRS_SERVER_CONFIG[enable_install]:-false}" == (#i)false ]]; then
     print_error "Configuration error. enable_install is not set for Electrs Electrum Server. To enable building/installing edit the ${CONFIG_FILENAME} file:"
@@ -763,9 +796,14 @@ fi
 
 ########################################
 REPO_URL=${ELECTRS_SERVER_CONFIG[repo_url]}
+if (( VERSION_IS_BRANCH )); then
+    VERBOSE_VERSION="branch $VERSION"
+else
+    VERBOSE_VERSION="tag $VERSION"
+fi
 STARTUP_TXT=$(cat <<EOF
 
-This script will git clone the Electrs Electrum Server project from:
+This script will git clone the Electrs Electrum Server project $VERBOSE_VERSION from:
 
   ${REPO_URL}
 
@@ -785,7 +823,7 @@ if (( UNINSTALL )); then
 elif (( FAST_INSTALL )); then
     # Skips: install_main_dependencies, install_build_dependencies.
     echo
-    echo "Fast installing changes only for $TARGET_PATH."
+    echo "Fast installing changes only for $TARGET_PATH ($VERSION)."
     echo
     print_info_bold "Stopping services and server..."
     stop_electrs

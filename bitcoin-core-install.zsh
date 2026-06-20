@@ -1116,8 +1116,8 @@ else
     # If version is a branch label (likely "master"), then assume it is at least v30.
     VERSION_GTE_29=1
     VERSION_GTE_30=1
+    VERSION_GTE_31=1
     # Uncomment as master branch development progresses:
-    # VERSION_GTE_31=1
     # VERSION_GTE_32=1
     # VERSION_GTE_33=1
     # VERSION_GTE_34=1
